@@ -1,6 +1,7 @@
 require "appd/version"
 require "appd/error"
-require "appd/server/ssh"
+require "appd/helpers"
+require "appd/server"
 
 module Appd
 end

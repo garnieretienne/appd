@@ -1,6 +1,6 @@
 require 'test/unit'
 require 'byebug' # For debugging purpose
-require 'appd'
+require 'appd/server/ssh'
 
 class ServerSSHTest < Test::Unit::TestCase
 
@@ -60,5 +60,38 @@ class ServerSSHTest < Test::Unit::TestCase
     assert_raises Appd::Error do
       remote.exec "whoami"
     end
+  end
+
+  def test_remote_execution_only_outputing_stdout
+    remote = Appd::Server::SSH.new @ssh_uri
+    remote.connect do 
+      assert_equal "foo", remote.exec!("echo foo").chomp
+    end
+  end
+
+  def test_remote_execution_raising_a_remote_error
+    remote = Appd::Server::SSH.new @ssh_uri
+    remote.connect do 
+      assert_raises Appd::RemoteError do
+        remote.exec!("non_existing_command", error_msg: "non existing command!")
+      end
+    end
+  end
+
+  def test_remote_execution_status
+    remote = Appd::Server::SSH.new @ssh_uri
+    remote.connect do 
+      assert remote.exec?("whoami")
+      assert !remote.exec?("whoami non_existing_argument")
+    end
+  end
+
+  def test_remote_connection_without_block
+    remote = Appd::Server::SSH.new @ssh_uri
+    assert_nil remote.ssh
+    remote.connect
+    assert_not_nil remote.ssh
+    remote.disconnect
+    assert_nil remote.ssh
   end
 end
