@@ -80,7 +80,7 @@ module Appd
 	    # @option options [String] :as run the command as the given user (using sudo)
 	    # @return [Array<String>] the exit status code, stdout, stderr and the executed command (useful for debugging)
 	    def exec(cmd, options={}, &block)
-	      raise Chaos::Error, "No active connection to the server" if !@ssh
+	      raise Appd::Error, "No active connection to the server" if !@ssh
 	      
 	      stdout, stderr, exit_status = "", "", nil
 
@@ -91,7 +91,7 @@ module Appd
 
 	      @ssh.open_channel do |channel|       
 	        channel.exec(cmd) do |ch, success|
-	          raise Chaos::Error, "Couldn't execute command '#{cmd}' on the remote host" unless success
+	          raise Appd::Error, "Couldn't execute command '#{cmd}' on the remote host" unless success
 
 	          channel.on_data do |ch, data|
 	            block.call(ch, :stdout, data) if block

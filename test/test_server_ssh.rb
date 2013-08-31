@@ -1,6 +1,6 @@
 require 'test/unit'
 require 'byebug' # For debugging purpose
-require 'appd/server/ssh'
+require 'appd'
 
 class ServerSSHTest < Test::Unit::TestCase
 
@@ -52,6 +52,13 @@ class ServerSSHTest < Test::Unit::TestCase
       exit_code, stdout = remote.exec("whoami", sudo: true)
       assert_equal 0, exit_code
       assert_equal "root", stdout.chomp
+    end
+  end
+
+  def test_remote_execution_without_connection_should_raise_error
+    remote = Appd::Server::SSH.new @ssh_uri
+    assert_raises Appd::Error do
+      remote.exec "whoami"
     end
   end
 end
