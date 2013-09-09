@@ -1,7 +1,7 @@
 require "appd/version"
 require "appd/error"
-require "appd/helpers"
-require "appd/server"
+require "appd/cli"
+require "appd/node"
 
 module Appd
 end

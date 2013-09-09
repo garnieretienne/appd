@@ -36,6 +36,7 @@ module Appd
 
       # Connect to the server using SSH and cache the connection during the block execution
       # If no password is memorized, try to connect using the user ssh key (in ~/.ssh/id_rsa)
+      # Can be used without block, but the connection need to be closed manually
       # 
       # @example
       #   server.connect do
@@ -87,7 +88,7 @@ module Appd
       #   
       # @param cmd [String] the command to execute
       # @param options [Hash] the options for the command executions
-      # @option options [Boolean] :sudo run the command with sudo
+      # @option options [Boolean] :sudo run the command with sudo if the user is not root
       # @option options [String] :as run the command as the given user (using sudo)
       # @return [Array<String>] the exit status code, stdout, stderr and the executed command (useful for debugging)
       def exec(cmd, options={}, &block)
@@ -96,7 +97,7 @@ module Appd
         stdout, stderr, exit_status = "", "", nil
 
         # Ask for user password if not set and modify the command
-        if options[:sudo] || options[:as]
+        if (options[:sudo] && @user != "root") || options[:as]
           cmd = "sudo #{"-u #{options[:as]} -H -i " if options[:as]}-S bash << EOCMD\n#{cmd}\nEOCMD"
         end
 
@@ -129,7 +130,7 @@ module Appd
       #
       # @param cmd [String] the command to execute
       # @param options [Hash] the options for the command executions
-      # @option options [Boolean] :sudo run the command with sudo
+      # @option options [Boolean] :sudo run the command with sudo if the user is not root
       # @option options [String] :as run the command as the given user (use sudo)
       # @option options [String] :error_message ('The following command exited with an error') the error message to print when an error is raised
       # @return [String] the standart ouput returned by the command
@@ -140,17 +141,57 @@ module Appd
         return stdout
       end
 
-        # Exec a command on the remote server and return the exit status
+      # Exec a command on the remote server and return the exit status
       #
       # @param cmd [String] the command to execute
       # @param options [Hash] the options for the command executions
-      # @option options [Boolean] :sudo run the command with sudo
+      # @option options [Boolean] :sudo run the command with sudo if the user is not root
       # @option options [String] :as run the command as the given user (use sudo)
       # @option options [String] :error_message ('The following command exited with an error') the error message to print when an error is raised
       # @return [Boolean] the exit status (`true` means exited with exit code `0`, `false` otherwise)
       def exec?(cmd, options={})
         exit_status, stdout, stderr, cmd = exec(cmd, options)
         return (exit_status == 0)
+      end
+
+      # Write content into a file on the remote host
+      #
+      # @example Hello World
+      #   ssh.write "/tmp/hello_world" do |content|
+      #     content << "Hello"
+      #     content << "World"
+      #   end
+      #
+      # @example No block
+      #   ssh.write "/tmp/hello_world", "Hello World!"
+      #
+      # @param path [String] the path of the file on the remote system
+      # @param content [String] the content to write
+      # @param options [Hash] the options for the command executions
+      # @option options [Boolean] :sudo run the command with sudo if the user is not root
+      # @option options [String] :as run the command as the given user (use sudo)
+      # @option options [String] :error_message ('The following command exited with an error') the error message to print when an error is raised
+      def write(path, content=[], options={}, &block)
+        if block
+          yield content
+          content = content.join("\n")
+        end
+        exec! "cat > '#{path}' <<EOF\n#{content}\nEOF", options
+      end
+
+      # Send a local file to the server using scp.
+      #
+      # @param src [String] local path to the file to send
+      # @param dst [String] path where the file will be copied on the server
+      # @return [Boolean] is the transfert completed
+      def send_file(src, dst)
+        uploaded = false
+        Net::SCP.start(@host, @user, password: @password, port: @port) do |scp|
+          scp.upload! src, dst do |ch, name, sent, total|
+            uploaded = true if sent == total
+          end
+        end
+        return uploaded
       end
     end
   end

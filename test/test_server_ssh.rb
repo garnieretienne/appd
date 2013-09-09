@@ -1,5 +1,6 @@
 require 'test/unit'
 require 'byebug' # For debugging purpose
+require 'tempfile'
 require 'appd/server/ssh'
 
 class ServerSSHTest < Test::Unit::TestCase
@@ -8,7 +9,7 @@ class ServerSSHTest < Test::Unit::TestCase
   # @example
   #   export APPD_TEST_SSH_URI=ssh://user:password@192.168.1.10
   def setup
-    @ssh_uri = ENV['APPD_TEST_SSH_URI'] || "ssh://#{ENV['USER']}@127.0.0.1:22"
+    @ssh_uri = ENV['APPD_TEST_SSH_URI'] || "ssh://vagrant:vagrant@localhost:2222"
   end
 
   def test_remote_instance_creation_with_password
@@ -93,5 +94,24 @@ class ServerSSHTest < Test::Unit::TestCase
     assert_not_nil remote.ssh
     remote.disconnect
     assert_nil remote.ssh
+  end
+
+  def test_remote_file_writing
+    remote = Appd::Server::SSH.new @ssh_uri
+    remote.connect do
+      remote.write "/tmp/hello_world", "Hello World"
+      assert_equal "Hello World", remote.exec!("cat /tmp/hello_world").chomp
+    end
+  end
+
+  def test_file_upload
+    remote = Appd::Server::SSH.new @ssh_uri
+    dst = "/tmp/test-#{Time.now.to_i}"
+    Tempfile.open('test_file_upload', '/tmp') do |f|
+      remote.connect do
+        remote.send_file f.path, dst
+        assert remote.exec?("ls #{dst}")
+      end
+    end
   end
 end

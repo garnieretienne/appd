@@ -26,4 +26,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "net-ssh"
   spec.add_dependency "net-scp"
   spec.add_dependency "hosts"
+  spec.add_dependency "thor"
 end
