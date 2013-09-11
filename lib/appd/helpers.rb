@@ -25,7 +25,7 @@ module Appd
       msg.each_line do |line|
         case type
         when :message
-          msg = "    #{line.chomp} "
+          msg = "    #{line.chomp}"
         when :live
           msg = "    #{line}"
         when :topic
@@ -43,11 +43,11 @@ module Appd
           status = block.call
           case status
           when TrueClass, FalseClass
-            print (status) ? "(success)\n" : "(failed)\n"
+            puts (status) ? "(success)" : "(failed)"
           when String
-            print "(#{status.chomp})\n"
+            puts "(#{status.chomp})"
           else
-            print "(done)\n"
+            puts "(done)"
           end
         else
           if type == :live
