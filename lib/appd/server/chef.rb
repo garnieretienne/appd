@@ -4,55 +4,72 @@ module Appd
   module Server
     
     class Chef
+      APPD_VAR_PATH = "/var/lib/appd"
+      CHEF_RUBY_INSTANCE_BASE = "/opt/chef/embedded"
 
-      CHEF_REPO_URI = "https://github.com/garnieretienne/appd-chef-repo.git"
-      CHEF_REPO_PATH = "/var/lib/appd/chef"
+      APPD_COOKBOOK_URI = "https://github.com/garnieretienne/appd-cookbook.git"
+      APPD_COOKBOOK_PATH = "#{APPD_VAR_PATH}/appd-cookbook"
 
       def initialize(ssh)
         @ssh = ssh
-        @cookbook_path = ["#{CHEF_REPO_PATH}/cookbooks"]
-        @role_path     = "#{CHEF_REPO_PATH}/roles"
-        @roles = ['app_server']
+        @cookbook_path = ["#{APPD_VAR_PATH}/cookbooks"]
+        @recipes = ['appd::app_server']
       end
 
       # Assume chef is started for the first time and root access
+      # Clone the appd cookbook repository and download dependencies to run it
       def init
-        clone_chef_repository
+        clone_appd_cookbook
+        chef_gem "install berkshelf"
       end
 
       # Run chef and serve the output
       def run(&block)
-        update_chef_repository
+        update_appd_cookbook
         generate_solo_config
         generate_node_config
-        @ssh.exec "chef-solo --config /tmp/solo.rb --json-attributes /tmp/node.json --force-formatter --log_level error --format appd" do |ch, stream, data, cmd|
+        @ssh.exec "chef-solo --config /tmp/solo.rb --json-attributes /tmp/node.json --force-formatter --log_level error --format appd", sudo: true do |ch, stream, data, cmd|
           yield data
         end
       end
 
       private
 
-      # Clone the chef repository, delete the folder first if exist
-      def clone_chef_repository
-        @ssh.exec! "rm -rf #{CHEF_REPO_PATH}"
-        @ssh.exec! "git clone #{CHEF_REPO_URI} #{CHEF_REPO_PATH}"
+      # Install a gem only for the instance of Ruby that is dedicated to 'chef-solo'
+      def chef_gem(args)
+        @ssh.exec! "#{CHEF_RUBY_INSTANCE_BASE}/bin/gem #{args}", sudo: true
       end
 
-      def update_chef_repository
-        @ssh.exec! "cd #{CHEF_REPO_PATH}; git pull origin master"
+      # execute a gem binary installed for the instance of Ruby that is dedicated to 'chef-solo'
+      def chef_exec(cmd)
+        @ssh.exec! "#{CHEF_RUBY_INSTANCE_BASE}/bin/#{cmd}", sudo: true
       end
 
+      # Clone the appd cookbook repository, delete the folder first if exist
+      def clone_appd_cookbook
+        @ssh.exec! "rm -rf #{APPD_COOKBOOK_PATH}", sudo: true
+        @ssh.exec! "git clone #{APPD_COOKBOOK_URI} #{APPD_COOKBOOK_PATH}", sudo: true
+      end
+
+      # Pull the last change from the appd cookbook repository
+      # And install cookbook dependencies
+      def update_appd_cookbook
+        @ssh.exec! "cd #{APPD_COOKBOOK_PATH}; git pull origin master", sudo: true
+        chef_exec "berks install --path #{@cookbook_path.first} --berksfile #{APPD_COOKBOOK_PATH}/Berksfile"
+      end
+
+      # Generate the "solo.rb" config file for Chef
       def generate_solo_config
-        @ssh.write "/tmp/solo.rb" do |file|
-          file << "require '#{CHEF_REPO_PATH}/lib/appd-chef-formatter.rb'"
+        @ssh.write "/tmp/solo.rb", sudo: true do |file|
+          file << "require '#{APPD_COOKBOOK_PATH}/libraries/appd-chef-formatter.rb'"
           file << "cookbook_path #{@cookbook_path}"
-          file << "role_path '#{@role_path}'"
         end
       end
 
+      # Generate the "node.json" config file for Chef
       def generate_node_config
-        run_list = { run_list: @roles.map{|name| "role[#{name}]"} }
-        @ssh.write "/tmp/node.json", JSON.generate(run_list)
+        run_list = { run_list: @recipes.map{|name| "recipe[#{name}]"} }
+        @ssh.write "/tmp/node.json", content: JSON.generate(run_list), sudo: true
       end
     end
 	end

@@ -98,7 +98,7 @@ module Appd
 
         # Ask for user password if not set and modify the command
         if (options[:sudo] && @user != "root") || options[:as]
-          cmd = "sudo #{"-u #{options[:as]} -H -i " if options[:as]}-S bash << EOCMD\n#{cmd}\nEOCMD"
+          cmd = "sudo #{options[:as] ? "-u #{options[:as]} -H -i " : "-s "}<< EOCMD\n#{cmd}\nEOCMD"
         end
 
         @ssh.open_channel do |channel|       
@@ -163,16 +163,18 @@ module Appd
       #   end
       #
       # @example No block
-      #   ssh.write "/tmp/hello_world", "Hello World!"
+      #   ssh.write "/tmp/hello_world", content: "Hello World!"
       #
       # @param path [String] the path of the file on the remote system
-      # @param content [String] the content to write
       # @param options [Hash] the options for the command executions
+      # @option options [String] :content the content to write
       # @option options [Boolean] :sudo run the command with sudo if the user is not root
       # @option options [String] :as run the command as the given user (use sudo)
       # @option options [String] :error_message ('The following command exited with an error') the error message to print when an error is raised
-      def write(path, content=[], options={}, &block)
+      def write(path, options={}, &block)
+        content = options[:content]
         if block
+          content = []
           yield content
           content = content.join("\n")
         end

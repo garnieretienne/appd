@@ -2,4 +2,19 @@
 
 require 'appd'
 
-Appd::CLI.start
+begin
+  Appd::CLI.start
+rescue Appd::RemoteError => e
+  print "\r\n\n"
+  puts e.message
+  puts "----"
+  puts "COMMAND: #{e.command}"
+  puts "----"
+  puts "EXIT STATUS: #{e.exit_status}"
+  puts "----"
+  puts "STDOUT:\n #{e.stdout}"
+  puts "----"
+  puts "STDERR:\n #{e.stderr}"
+  puts e.backtrace.join("\n")
+  Process.exit(1)
+end

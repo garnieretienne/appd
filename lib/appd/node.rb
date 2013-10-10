@@ -12,36 +12,38 @@ module Appd
       @server = Appd::Server::System.new @ssh_uri
     end
 
-    # Bootstrap a new server
-    def bootstrap
-
-      display_ "Configuring hostname and domain name", :topic
+    def set_hostname_and_domain_name
       new_fqdn = URI(@ssh_uri).host
       new_hostname = new_fqdn.split(/^(\w*)\.*./)[1]
       
-      display_ "Setting hostname..." do
+      display_ "Configuring hostname and domain name", :topic
+      
+      display_ "Set hostname..." do
         @server.hostname = new_hostname
       end
 
-      display_ "Setting domain name..." do
+      display_ "Set domain name..." do
         @server.fqdn = new_fqdn
       end
+    end
 
-      display_ "Setup the creation of an admin user", :topic
+    def upload_local_user_key
       current_user = ENV['USER']
       
-      display_ "Upload public key for '#{current_user}' user..." do
-        @server.upload_admin_key current_user, "#{ENV['HOME']}/.ssh/id_rsa.pub"
-      end
-
-      display_ "Update the system", :topic
+      display_ "Granting sysop and devop access to the current user", :topic
       
-      @server.update do |output|
-        display_ output, :live
+      display_ "Upload public key for '#{current_user}' user..." do
+        @server.upload_sysop_key current_user, "#{ENV['HOME']}/.ssh/id_rsa.pub"
       end
+      display_ "Upload public key for '#{current_user}' user..." do
+        @server.upload_devop_key current_user, "#{ENV['HOME']}/.ssh/id_rsa.pub"
+      end
+    end
 
-      display_ "Install Opscode Chef", :topic
-      dependencies = :curl, :git
+    def install_chef
+      dependencies = "curl", "git", "build-essential", "libxml2-dev", "libxslt-dev"
+
+      display_ "Installing Opscode Chef", :topic
       
       display_ "Install dependencies (#{dependencies.join(", ")})..." do
         @server.install dependencies
@@ -50,14 +52,22 @@ module Appd
       display_ "Install and configure chef-solo using omnibus..." do
         @server.install_chef
       end
+    end
 
-      display_ "Configure services using Chef", :topic
+    def system_update
+      display_ "Updating the system", :topic
+      
+      @server.update do |output|
+        display_ output, :live
+      end
+    end
+
+    def run_chef
+      display_ "Configuring services using Chef", :topic
 
       @server.chef.run do |output|
         display_ output, :live
-      end
-
-      display_ "Done.", :topic
+      end 
     end
   end
 end

@@ -43,11 +43,11 @@ module Appd
           status = block.call
           case status
           when TrueClass, FalseClass
-            puts (status) ? "(success)" : "(failed)"
+            puts (status) ? " (success)" : " (failed)"
           when String
-            puts "(#{status.chomp})"
+            puts " (#{status.chomp})"
           else
-            puts "(done)"
+            puts " (done)"
           end
         else
           if type == :live
