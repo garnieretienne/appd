@@ -1,73 +1,94 @@
-require 'uri'
-require 'appd/helpers'
-require 'appd/server/system'
+require 'appd/remote_host'
+require 'appd/chef_instance'
 
 module Appd
 
   class Node
-    include Appd::Helpers
 
-    def initialize(ssh_uri)
-      @ssh_uri = ssh_uri
-      @server = Appd::Server::System.new @ssh_uri
+    # Where sysops pub keys are stored on the node
+    SYSOPS_KEYS_PATH = "/root/sysops"
+
+    # Where devops pub keys are stored on the node
+    DEVOPS_KEYS_PATH = "/root/devops"
+
+    # Dependencies packages to install chef via omnibus
+    CHEF_DEPENDENCIES = "curl", "git"
+
+    # Dependencies packages to install berkshelf via ruby gem
+    BERKSHELF_DEPENDENCIES = "build-essential", "libxml2-dev", "libxslt-dev"
+
+    # Appd cookbook git address
+    APPD_COOKBOOKS = { appd_cookbook: "https://github.com/garnieretienne/appd-cookbook.git" }
+
+    # Appd recipes to install
+    APPD_RECIPES = ['appd::app_server']
+
+    # Chef output formatter lib path
+    CHEF_FORMATTER = { appd: "#{Appd::ChefInstance::COOKBOOKS_PATH}/appd_cookbook/libraries/appd-chef-formatter.rb" }
+
+    attr_accessor :hostname, :user, :password, :port
+
+    def initialize(options={})
+      raise ArgumentError, "No hostname provided" if !options[:hostname]
+      options.each{|option, value| self.send("#{option}=", value)}
+      @remote = Appd::RemoteHost.new ssh_uri
+      @chef = Appd::ChefInstance.new ssh_uri
     end
 
-    def set_hostname_and_domain_name
-      new_fqdn = URI(@ssh_uri).host
-      new_hostname = new_fqdn.split(/^(\w*)\.*./)[1]
-      
-      display_ "Configuring hostname and domain name", :topic
-      
-      display_ "Set hostname..." do
-        @server.hostname = new_hostname
-      end
+    # Build a SSH URI (ssh://user:password@hostname:port)
+    def ssh_uri
+      uri = "ssh://"
+      uri += @user if @user
+      uri += ":" if @user && @password
+      uri += @password if @password
+      uri += "@" if @user
+      uri += @hostname
+      uri += ":#{@port}" if @port
+      return uri
+    end
 
-      display_ "Set domain name..." do
-        @server.fqdn = new_fqdn
+    # Configure the hostname on the remote host
+    def configure_remote_hostname
+      system_name = @hostname.split(/^(\w*)\.*./)[1]
+      @remote.name = system_name if @remote.name != system_name
+      @remote.fqdn = @hostname if @remote.fqdn != @hostname
+    end
+
+    # Update the system on the remote host
+    def update_system(&block)
+      @remote.system_update do |output|
+        yield output
       end
     end
 
-    def upload_local_user_key
-      current_user = ENV['USER']
-      
-      display_ "Granting sysop and devop access to the current user", :topic
-      
-      display_ "Upload public key for '#{current_user}' user..." do
-        @server.upload_sysop_key current_user, "#{ENV['HOME']}/.ssh/id_rsa.pub"
-      end
-      display_ "Upload public key for '#{current_user}' user..." do
-        @server.upload_devop_key current_user, "#{ENV['HOME']}/.ssh/id_rsa.pub"
-      end
+    # Upload the user pub key to the `SYSOPS_KEYS_PATH` on the remote host
+    def upload_sysop_key(user, key_path)
+      @remote.upload key_path, "#{SYSOPS_KEYS_PATH}/#{user}.pub"
     end
 
+    # Upload the user pub key to the `DEVOPS_KEYS_PATH` on the remote host
+    def upload_devop_key(user, key_path)
+      @remote.upload key_path, "#{DEVOPS_KEYS_PATH}/#{user}.pub"
+    end
+
+    # Install chef, berkshelf and their dependencies on the remote host
     def install_chef
-      dependencies = "curl", "git", "build-essential", "libxml2-dev", "libxslt-dev"
-
-      display_ "Installing Opscode Chef", :topic
-      
-      display_ "Install dependencies (#{dependencies.join(", ")})..." do
-        @server.install dependencies
-      end
-
-      display_ "Install and configure chef-solo using omnibus..." do
-        @server.install_chef
+      @remote.install BERKSHELF_DEPENDENCIES + BERKSHELF_DEPENDENCIES
+      @chef.install
+    end
+    
+    # Run chef on the remote host and apply `APPD_RECIPES` from `APPD_COOKBOOKS`
+    def run_chef(&block)
+      @chef.cookbooks = APPD_COOKBOOKS
+      @chef.recipes = APPD_RECIPES
+      @chef.formatter = CHEF_FORMATTER
+      @chef.run do |output|
+        yield output
       end
     end
 
-    def system_update
-      display_ "Updating the system", :topic
-      
-      @server.update do |output|
-        display_ output, :live
-      end
-    end
-
-    def run_chef
-      display_ "Configuring services using Chef", :topic
-
-      @server.chef.run do |output|
-        display_ output, :live
-      end 
+    # TODO
+    def close_pending_ssh_connections
     end
   end
 end
