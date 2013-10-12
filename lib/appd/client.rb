@@ -6,9 +6,9 @@ module Appd
   class Client
     include Appd::SSHClient
 
-    def missing_method(command, *args)
+    def method_missing(command, *args)
       if ssh.exec? command
-        ssh.exec! "#{command} #{args}"
+        ssh.exec! "#{command} #{args.join(' ')}"
       else
         raise AppdError, "Unknown command"
       end
