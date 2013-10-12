@@ -1,6 +1,7 @@
 require 'thor'
 require 'appd/commands/nodes'
 require 'appd/commands/apps'
+require 'appd/commands/config'
 
 module Appd
 
@@ -11,6 +12,9 @@ module Appd
 
     desc 'apps', 'Manage apps (create / destroy)'
     subcommand 'apps', Appd::Commands::Apps
+
+    desc 'config', 'Manage app config vars'
+    subcommand 'config', Appd::Commands::Config
 
   end
 end

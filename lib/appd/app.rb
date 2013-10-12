@@ -25,5 +25,40 @@ module Appd
     def create
       @api.create @name
     end
+
+    # Get all config vars for the app
+    def list_config
+      configs = store :get, 'configs'
+      (configs.empty?) ? 'No config vars set yet.' : configs
+    end
+
+    # Set a config var for the app
+    def set_config(key, value)
+      store :set, "configs/#{key}", value
+    end
+
+    # Unset a config var from the app
+    def unset_config(key)
+      store :delete, "configs/#{key}"
+    end
+
+    # Build a new release of the app, run it and route it
+    def release
+      configs = store(:get, 'configs').gsub("\n", " ")
+      
+      # TODO: if error, user need to deploy code first (nothing to deploy) => use a special exit code 
+      # when code is not pushed or only deploy if app has a correct build
+      version = @api.release @name, configs
+      backend = @api.run @name, :web, version
+      @api.route @name, backend
+      return version
+    end
+
+    private
+
+    # Link to the store API, namespace all command with the application name
+    def store(cmd, *args)
+      @api.store "#{cmd} #{@name}/#{args.join(' ')}"
+    end
   end
 end

@@ -8,7 +8,9 @@ module Appd
 
     def method_missing(command, *args)
       if ssh.exec? command
-        ssh.exec! "#{command} #{args.join(' ')}"
+        exit_code, stdout, stderr = ssh.exec "#{command} #{args.join(' ')}"
+        # puts "#{exit_code}: #{stderr}"
+        return stdout
       else
         raise AppdError, "Unknown command"
       end
