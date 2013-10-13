@@ -23,18 +23,18 @@ module Appd
 
     # Create an application on the node
     def create
-      @api.create @name
+      return @api.create(@name).to_s
     end
 
     # Get all config vars for the app
     def list_config
       configs = store :get, 'configs'
-      (configs.empty?) ? 'No config vars set yet.' : configs
+      (configs.error?) ? 'No config vars set yet.' : configs.to_s
     end
 
     # Set a config var for the app
     def set_config(key, value)
-      store :set, "configs/#{key}", value
+      return store(:set, "configs/#{key}", value).to_s
     end
 
     # Unset a config var from the app
@@ -44,14 +44,14 @@ module Appd
 
     # Build a new release of the app, run it and route it
     def release
-      configs = store(:get, 'configs').gsub("\n", " ")
+      # configs = store(:get, 'configs').gsub("\n", " ")
       
       # TODO: if error, user need to deploy code first (nothing to deploy) => use a special exit code 
       # when code is not pushed or only deploy if app has a correct build
-      version = @api.release @name, configs
-      backend = @api.run @name, :web, version
-      @api.route @name, backend
-      return version
+      # version = @api.release @name, configs
+      # backend = @api.run @name, :web, version
+      # @api.route @name, backend
+      # return version
     end
 
     private
