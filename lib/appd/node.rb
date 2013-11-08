@@ -73,7 +73,7 @@ module Appd
 
     # Install chef, berkshelf and their dependencies on the remote host
     def install_chef
-      @remote.install BERKSHELF_DEPENDENCIES + BERKSHELF_DEPENDENCIES
+      @remote.install CHEF_DEPENDENCIES + BERKSHELF_DEPENDENCIES
       @chef.install
     end
     
