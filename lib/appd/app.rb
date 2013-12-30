@@ -44,14 +44,14 @@ module Appd
 
     # Build a new release of the app, run it and route it
     def release
-      # configs = store(:get, 'configs').gsub("\n", " ")
+      configs = store(:get, 'configs').to_s.gsub("\n", " ")
       
       # TODO: if error, user need to deploy code first (nothing to deploy) => use a special exit code 
       # when code is not pushed or only deploy if app has a correct build
-      # version = @api.release @name, configs
-      # backend = @api.run @name, :web, version
-      # @api.route @name, backend
-      # return version
+      version = @api.release(@name, configs).to_s.chomp.gsub("\n", " ")
+      backend = @api.run(@name, :web, version).to_s.chomp.gsub("\n", " ")
+      @api.route @name, backend
+      return version
     end
 
     private
