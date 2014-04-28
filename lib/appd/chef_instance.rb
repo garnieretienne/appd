@@ -7,9 +7,6 @@ module Appd
 
     attr_accessor :cookbooks, :recipes, :formatter
 
-    # Location where omnibus install its dedicated the ruby instance
-    CHEF_RUBY_INSTANCE_BASE = "/opt/chef/embedded"
-
     # Location where various chef-related files are stored
     CHEF_VAR_PATH = "/var/lib/chef"
 
@@ -21,18 +18,9 @@ module Appd
 
     # Install Opscode Chef and Riot Berkshelf on the remote host
     def install
-      install_chef
-      install_berkshelf
-    end
-
-    # Install Opscode Chef using the omnibus installer
-    def install_chef
-      ssh.exec! "curl -L https://www.opscode.com/chef/install.sh | bash", sudo: true
-    end
-
-    # Install Riot Berkshelf to get application-cookbook dependencies
-    def install_berkshelf
-      chef_gem "install berkshelf"
+      ssh.exec! "curl -O https://opscode-omnibus-packages.s3.amazonaws.com/ubuntu/12.04/x86_64/chefdk_0.0.1-1_amd64.deb"
+      ssh.exec! "dpkg --install chefdk_0.0.1-1_amd64.deb", sudo: true
+      ssh.exec! "rm chefdk_0.0.1-1_amd64.deb", sudo: true
     end
 
     # Run chef solo with the configured cookbooks recipes
@@ -48,16 +36,6 @@ module Appd
     end
 
     private
-    
-    # Install a gem only for the instance of Ruby that is dedicated to 'chef-solo'
-    def chef_gem(args)
-      ssh.exec! "#{CHEF_RUBY_INSTANCE_BASE}/bin/gem #{args}", sudo: true
-    end
-
-    # Execute a gem binary installed for the instance of Ruby that is dedicated to 'chef-solo'
-    def chef_exec(cmd)
-      ssh.exec! "#{CHEF_RUBY_INSTANCE_BASE}/bin/#{cmd}", sudo: true
-    end
 
     # Install or update all cookbooks on the remote host and install their dependencies
     def register_cookbooks
@@ -67,7 +45,7 @@ module Appd
         else
           ssh.exec! "git clone #{git_address} #{COOKBOOKS_PATH}/#{name}", sudo: true
         end
-        chef_exec "berks install --path #{VENDOR_COOKBOOKS_PATH} --berksfile #{COOKBOOKS_PATH}/#{name}/Berksfile"
+        ssh.exec! "berks vendored #{VENDOR_COOKBOOKS_PATH} --berksfile #{COOKBOOKS_PATH}/#{name}/Berksfile"
       end
     end
 

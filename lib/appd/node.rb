@@ -76,7 +76,7 @@ module Appd
       @remote.install CHEF_DEPENDENCIES + BERKSHELF_DEPENDENCIES
       @chef.install
     end
-    
+
     # Run chef on the remote host and apply `APPD_RECIPES` from `APPD_COOKBOOKS`
     def run_chef(&block)
       @chef.cookbooks = APPD_COOKBOOKS
